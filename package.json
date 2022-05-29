@@ -22,14 +22,18 @@
     "coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@fastify/postgres": "^4.0.1",
     "env-schema": "^4.0.0",
     "fastify": "^3.29.0",
+    "pg": "^8.7.3",
+    "pg-native": "^3.0.0",
     "pino": "^7.11.0",
     "pino-pretty": "^7.6.1"
   },
   "devDependencies": {
     "@swc/core": "^1.2.194",
     "@types/node": "^17.0.36",
+    "@types/pg": "^8.6.5",
     "@vitest/ui": "^0.7.13",
     "c8": "^7.11.3",
     "vite": "^2.9.9",

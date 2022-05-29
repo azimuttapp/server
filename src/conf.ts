@@ -12,10 +12,11 @@ export class Conf {
             dotenv: true,
             schema: {
                 type: 'object',
-                required: ['PORT', 'ENV'],
+                required: ['PORT', 'ENV', 'POSTGRES_URL'],
                 properties: {
                     PORT: {type: 'integer', default: 3000},
-                    ENV: {type: 'string', enum: ['dev', 'staging', 'prod']}
+                    ENV: {type: 'string', enum: ['dev', 'staging', 'prod']},
+                    POSTGRES_URL: {type: 'string'},
                 }
             }
         })
@@ -25,19 +26,26 @@ export class Conf {
             ? {prettyPrint: {translateTime: 'HH:MM:ss.l', ignore: 'pid,hostname'}}
             : {level: 'warn', file: logDir + '/warn-logs.log'}
 
-        const conf = new Conf(env.PORT as number, env.ENV as Env, import.meta.env.MODE as Mode, logger)
+        const conf = new Conf(
+            env.PORT as number,
+            env.ENV as Env,
+            import.meta.env.MODE as Mode,
+            env.POSTGRES_URL as string,
+            logger,
+        )
         if (conf.env === 'prod' && conf.mode !== 'production') throw `prod env is not in production mode!`
         if (conf.env === 'staging' && conf.mode !== 'production') throw `staging env is not in production mode!`
         return conf
     }
 
     static test() {
-        return new Conf(3000, 'dev', 'development', {})
+        return new Conf(3000, 'dev', 'development', '', {})
     }
 
     constructor(public readonly port: number,
                 public readonly env: Env,
                 public readonly mode: Mode,
+                public readonly databaseUrl: string,
                 public readonly logger: FastifyLoggerOptions) {
     }
 }

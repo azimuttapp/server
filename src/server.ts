@@ -1,23 +1,26 @@
 import {buildApp} from './app'
-import {fastify} from 'fastify'
+import {fastify as Fastify} from 'fastify'
 import {Conf} from "@/conf";
 import {FastifyInstance} from "fastify/types/instance";
+import postgres from "@fastify/postgres";
 
 let app: FastifyInstance
 
 try {
     const conf = Conf.load()
-    app = buildApp(fastify({
+    const fastify = Fastify({
         logger: conf.logger,
         pluginTimeout: 50000,
         bodyLimit: 15485760
-    }), conf)
+    })
+    fastify.register(postgres, {connectionString: conf.databaseUrl})
+    app = buildApp(fastify, conf)
     if (conf.mode === 'production') {
-        app.listen(conf.port, '0.0.0.0')
+        await app.listen(conf.port, '0.0.0.0')
         console.log(`Server started on 0.0.0.0:${conf.port}`)
     }
 } catch (err) {
-    fastify({
+    Fastify({
         logger: true,
         pluginTimeout: 50000,
         bodyLimit: 15485760
