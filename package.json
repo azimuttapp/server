@@ -16,7 +16,7 @@
   "main": "build/server.js",
   "scripts": {
     "dev": "vite",
-    "build": "yarn install && vite build --outDir build --ssr src/server.ts",
+    "build": "yarn install --ignore-platform && vite build --outDir build --ssr src/server.ts",
     "start": "node build/server.js",
     "test": "vitest",
     "coverage": "vitest --coverage"
