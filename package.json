@@ -13,24 +13,28 @@
   },
   "license": "MIT",
   "author": "Loïc Knuchel <loicknuchel@gmail.com> (https://loicknuchel.fr)",
-  "main": "index.js",
+  "main": "build/server.js",
   "scripts": {
-    "dev": "nodemon --watch src -e js,ts,json --exec \"ts-node src/index.ts\"",
-    "build": "tsup src/index.ts --format cjs --clean",
-    "preview": "node dist/index.js"
+    "dev": "vite",
+    "build": "vite build --outDir build --ssr src/server.ts",
+    "preview": "yarn build && node build/server.js",
+    "test": "vitest",
+    "coverage": "vitest --coverage"
   },
   "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^4.18.1"
+    "env-schema": "^4.0.0",
+    "fastify": "^3.29.0",
+    "pino": "^7.11.0",
+    "pino-pretty": "^7.6.1"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.12",
-    "@types/express": "^4.17.13",
-    "@types/node": "^17.0.35",
-    "nodemon": "^2.0.16",
-    "ts-node": "^10.8.0",
-    "tsconfig-paths": "^4.0.0",
-    "tsup": "^6.0.0",
-    "typescript": "^4.7.2"
+    "@swc/cli": "^0.1.57",
+    "@swc/core": "^1.2.194",
+    "@types/node": "^17.0.36",
+    "@vitest/ui": "^0.7.13",
+    "c8": "^7.11.3",
+    "vite": "^2.9.9",
+    "vite-plugin-node": "^0.0.18",
+    "vitest": "^0.7.13"
   }
 }
