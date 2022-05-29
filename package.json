@@ -16,8 +16,8 @@
   "main": "build/server.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --outDir build --ssr src/server.ts",
-    "preview": "yarn build && node build/server.js",
+    "build": "yarn install && vite build --outDir build --ssr src/server.ts",
+    "start": "node build/server.js",
     "test": "vitest",
     "coverage": "vitest --coverage"
   },

@@ -15,6 +15,6 @@ A server for [Azimutt](https://azimutt.app), built with [TypeScript](https://www
 
 - launch dev server: `yarn dev`
 - create production build: `yarn build`
-- preview production build: `yarn preview`
+- preview production build: `yarn start`
 - launch tests: `yarn test` or `yarn test run` (no watch)
 - launch test coverage: `yarn coverage`

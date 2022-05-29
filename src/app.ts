@@ -6,6 +6,12 @@ export default (opts?: FastifyServerOptions) => {
     fastify.get('/', async (request, reply) => {
         return { hello: 'world' }
     })
+    fastify.get('/ping', async (request, reply) => {
+        return { status: 200 }
+    })
+    fastify.get('/health', async (request, reply) => {
+        return { webserver: 'ok' }
+    })
 
     return fastify
 }
