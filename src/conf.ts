@@ -7,16 +7,17 @@ export type Mode = 'development' | 'production'
 
 export class Conf {
     // this may throw!
-    static load() {
+    static load(): Conf {
         const env = envSchema({
             dotenv: true,
             schema: {
                 type: 'object',
-                required: ['PORT', 'ENV', 'POSTGRES_URL'],
+                required: ['PORT', 'ENV', 'POSTGRES_URL', 'JWT_SECRET'],
                 properties: {
                     PORT: {type: 'integer', default: 3000},
                     ENV: {type: 'string', enum: ['dev', 'staging', 'prod']},
                     POSTGRES_URL: {type: 'string'},
+                    JWT_SECRET: {type: 'string'},
                 }
             }
         })
@@ -31,6 +32,7 @@ export class Conf {
             env.ENV as Env,
             import.meta.env.MODE as Mode,
             env.POSTGRES_URL as string,
+            env.JWT_SECRET as string,
             logger,
         )
         if (conf.env === 'prod' && conf.mode !== 'production') throw `prod env is not in production mode!`
@@ -38,14 +40,15 @@ export class Conf {
         return conf
     }
 
-    static test() {
-        return new Conf(3000, 'dev', 'development', '', {})
+    static test(): Conf {
+        return new Conf(3000, 'dev', 'development', 'db', 'jwt', {})
     }
 
     constructor(public readonly port: number,
                 public readonly env: Env,
                 public readonly mode: Mode,
                 public readonly databaseUrl: string,
+                public readonly jwtSecret: string,
                 public readonly logger: FastifyLoggerOptions) {
     }
 }
