@@ -1,13 +1,13 @@
-import { beforeAll, afterAll } from 'vitest'
-import buildFastify from './app'
+import {afterAll, beforeAll} from 'vitest'
+import {buildApp} from './app'
+import {fastify} from 'fastify'
+import {Conf} from "@/conf";
 
-const fastify = buildFastify()
+export const app = buildApp(fastify(), Conf.test())
 
 beforeAll(async () => {
-    await fastify.ready()
+    await app.ready()
 })
 afterAll(async () => {
-    await fastify.close()
+    await app.close()
 })
-
-export default fastify

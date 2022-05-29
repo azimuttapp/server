@@ -1,17 +1,15 @@
-import { fastify as Fastify, FastifyServerOptions } from 'fastify'
+import {FastifyInstance} from "fastify/types/instance";
+import {Conf} from "@/conf";
 
-export default (opts?: FastifyServerOptions) => {
-    const fastify = Fastify(opts)
-
-    fastify.get('/', async (request, reply) => {
-        return { hello: 'world' }
+export const buildApp = (server: FastifyInstance, conf: Conf): FastifyInstance => {
+    server.get('/', async (request, reply) => {
+        return {hello: 'world'}
     })
-    fastify.get('/ping', async (request, reply) => {
-        return { status: 200 }
+    server.get('/ping', async (request, reply) => {
+        return {status: 200}
     })
-    fastify.get('/health', async (request, reply) => {
-        return { webserver: 'ok' }
+    server.get('/health', async (request, reply) => {
+        return {env: conf.env, webserver: 'ok'}
     })
-
-    return fastify
+    return server
 }
