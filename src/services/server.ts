@@ -4,6 +4,8 @@ import postgres from "@fastify/postgres";
 import jwt from "@fastify/jwt";
 import {Conf} from "@/conf";
 import {onRequestHookHandler} from "fastify/types/hooks";
+import {RouteGenericInterface, RouteShorthandOptions} from "fastify/types/route";
+import {RawReplyDefaultExpression, RawRequestDefaultExpression, RawServerDefault} from "fastify/types/utils";
 
 declare module 'fastify' {
     export interface FastifyInstance {
@@ -18,7 +20,7 @@ export interface Authenticated {
 }
 
 export class Server {
-    static create(conf: Conf): FastifyInstance {
+    static create(conf: Conf): Server {
         const fastify = Fastify({
             logger: conf.logger,
             pluginTimeout: 50000,
@@ -37,7 +39,7 @@ export class Server {
         fastify.decorate('authenticated', async (request: FastifyRequest, reply: FastifyReply) => {
             try {
                 const user = await request.jwtVerify() as any
-                if(user.aud === 'authenticated') {
+                if (user.aud === 'authenticated') {
                     request.user = {id: user.sub, email: user.email} as Authenticated
                 } else {
                     reply.send({statusCode: 403, error: 'Forbidden', message: 'No correct rights'})
@@ -46,6 +48,31 @@ export class Server {
                 reply.send(err)
             }
         })
-        return fastify
+        return new Server(fastify)
+    }
+
+    constructor(public readonly fastify: FastifyInstance) {
+    }
+
+    get<Route extends RouteGenericInterface>(
+        path: string,
+        opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
+        handler: (req: FastifyRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
+    ): Server {
+        this.fastify.get<Route>(path, opts, (req: FastifyRequest<Route>, reply: FastifyReply) => handler(req, new Response<Route['Reply']>(reply)))
+        return this
+    }
+}
+
+class Response<Payload> {
+    constructor(private readonly reply: FastifyReply) {
+    }
+
+    ok(payload: Payload): void {
+        this.reply.send(payload)
+    }
+
+    notFound(message: string): void {
+        this.reply.code(404).send({statusCode: 404, error: 'Not Found', message})
     }
 }
