@@ -44,6 +44,32 @@ export class Server {
         })
         return this
     }
+
+    authedPost<Route extends RouteGenericInterface>(
+        path: string,
+        opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
+        handler: (req: AuthedRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
+    ): Server {
+        const onRequest = Array.isArray(opts.onRequest) ? opts.onRequest : typeof opts.onRequest === 'function' ? [opts.onRequest] : []
+        const authedOpts = {...opts, onRequest: onRequest.concat([authed])}
+        this.fastify.post<Route>(path, authedOpts, (req: FastifyRequest<Route>, reply: FastifyReply) => {
+            return handler(req as AuthedRequest<Route>, new Response<Route['Reply']>(reply))
+        })
+        return this
+    }
+
+    authedPut<Route extends RouteGenericInterface>(
+        path: string,
+        opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
+        handler: (req: AuthedRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
+    ): Server {
+        const onRequest = Array.isArray(opts.onRequest) ? opts.onRequest : typeof opts.onRequest === 'function' ? [opts.onRequest] : []
+        const authedOpts = {...opts, onRequest: onRequest.concat([authed])}
+        this.fastify.put<Route>(path, authedOpts, (req: FastifyRequest<Route>, reply: FastifyReply) => {
+            return handler(req as AuthedRequest<Route>, new Response<Route['Reply']>(reply))
+        })
+        return this
+    }
 }
 
 class Response<Payload> {
@@ -52,6 +78,14 @@ class Response<Payload> {
 
     ok(payload: Payload): void {
         this.reply.send(payload)
+    }
+
+    noContent(): void {
+        this.reply.code(204).send()
+    }
+
+    badRequest(message: string): void {
+        this.reply.code(400).send({statusCode: 400, error: 'Bad Request', message})
     }
 
     notFound(message: string): void {

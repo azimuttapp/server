@@ -1,5 +1,5 @@
 import {Conf} from "@/conf";
-import {Email, User, UserId} from "@/utils/types";
+import {Email, User, UserBody, UserId} from "@/utils/types";
 import * as schemas from "@/utils/schemas";
 import {Database} from "@/services/database";
 import {Server} from "@/services/server";
@@ -21,12 +21,21 @@ export const buildApp = (server: Server, db: Database, conf: Conf): Server => {
         const user = await db.getUserByEmail(req.query.email)
         user ? res.ok(user) : res.notFound(`No user with email ${req.query.email}`)
     })
-
-    server.fastify.get('/users', async (req, reply) => {
-        server.fastify.pg.query('SELECT id, username, email, name, avatar, * FROM profiles', [], (err, result) => {
-            reply.send(err || result.rows)
-        })
+    server.authedPost<{ Body: User, Reply: undefined }>('/users', {
+        schema: {body: schemas.user, response: {200: schemas.empty, 400: schemas.error}}
+    }, async (req, res) => {
+        if (req.user.id !== req.body.id) return res.badRequest(`You can only create your profile`)
+        await db.insertUser(req.body)
+        res.noContent()
     })
+    server.authedPut<{ Params: { id: UserId }, Body: UserBody, Reply: undefined }>('/users/:id', {
+        schema: {params: {id: schemas.userId}, body: schemas.userBody, response: {200: schemas.empty, 400: schemas.error}}
+    }, async (req, res) => {
+        if (req.user.id !== req.params.id) return res.badRequest(`You can only update your profile`)
+        await db.updateUser(req.params.id, req.body)
+        res.noContent()
+    })
+
     server.fastify.get('/ping', async (req, reply) => {
         return {status: 200}
     })
