@@ -4,7 +4,12 @@ import postgres from "@fastify/postgres";
 import jwt from "@fastify/jwt";
 import {Conf} from "@/conf";
 import {RouteGenericInterface, RouteShorthandOptions} from "fastify/types/route";
-import {RawReplyDefaultExpression, RawRequestDefaultExpression, RawServerDefault} from "fastify/types/utils";
+import {
+    HTTPMethods,
+    RawReplyDefaultExpression,
+    RawRequestDefaultExpression,
+    RawServerDefault
+} from "fastify/types/utils";
 
 export class Server {
     static create(conf: Conf): Server {
@@ -26,10 +31,7 @@ export class Server {
         opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
         handler: (req: FastifyRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
     ): Server {
-        this.fastify.get<Route>(path, opts, (req: FastifyRequest<Route>, reply: FastifyReply) => {
-            return handler(req, new Response<Route['Reply']>(reply))
-        })
-        return this
+        return this.route('GET', path, opts, handler)
     }
 
     authedGet<Route extends RouteGenericInterface>(
@@ -37,12 +39,7 @@ export class Server {
         opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
         handler: (req: AuthedRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
     ): Server {
-        const onRequest = Array.isArray(opts.onRequest) ? opts.onRequest : typeof opts.onRequest === 'function' ? [opts.onRequest] : []
-        const authedOpts = {...opts, onRequest: onRequest.concat([authed])}
-        this.fastify.get<Route>(path, authedOpts, (req: FastifyRequest<Route>, reply: FastifyReply) => {
-            return handler(req as AuthedRequest<Route>, new Response<Route['Reply']>(reply))
-        })
-        return this
+        return this.authed('GET', path, opts, handler)
     }
 
     authedPost<Route extends RouteGenericInterface>(
@@ -50,12 +47,7 @@ export class Server {
         opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
         handler: (req: AuthedRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
     ): Server {
-        const onRequest = Array.isArray(opts.onRequest) ? opts.onRequest : typeof opts.onRequest === 'function' ? [opts.onRequest] : []
-        const authedOpts = {...opts, onRequest: onRequest.concat([authed])}
-        this.fastify.post<Route>(path, authedOpts, (req: FastifyRequest<Route>, reply: FastifyReply) => {
-            return handler(req as AuthedRequest<Route>, new Response<Route['Reply']>(reply))
-        })
-        return this
+        return this.authed('POST', path, opts, handler)
     }
 
     authedPut<Route extends RouteGenericInterface>(
@@ -63,12 +55,33 @@ export class Server {
         opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
         handler: (req: AuthedRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
     ): Server {
-        const onRequest = Array.isArray(opts.onRequest) ? opts.onRequest : typeof opts.onRequest === 'function' ? [opts.onRequest] : []
-        const authedOpts = {...opts, onRequest: onRequest.concat([authed])}
-        this.fastify.put<Route>(path, authedOpts, (req: FastifyRequest<Route>, reply: FastifyReply) => {
-            return handler(req as AuthedRequest<Route>, new Response<Route['Reply']>(reply))
+        return this.authed('PUT', path, opts, handler)
+    }
+
+    private route<Route extends RouteGenericInterface>(
+        method: HTTPMethods,
+        path: string,
+        opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
+        handler: (req: FastifyRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
+    ): Server {
+        this.fastify.route<Route>({
+            ...opts,
+            method,
+            url: path,
+            handler: (req: FastifyRequest<Route>, reply: FastifyReply) => handler(req, new Response<Route['Reply']>(reply))
         })
         return this
+    }
+
+    private authed<Route extends RouteGenericInterface>(
+        method: HTTPMethods,
+        path: string,
+        opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
+        handler: (req: AuthedRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
+    ): Server {
+        const onRequest = Array.isArray(opts.onRequest) ? opts.onRequest : typeof opts.onRequest === 'function' ? [opts.onRequest] : []
+        const authedOpts = {...opts, onRequest: onRequest.concat([authed])}
+        return this.route(method, path, authedOpts, (req, res) => handler(req as AuthedRequest<Route>, res))
     }
 }
 
