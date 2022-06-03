@@ -18,6 +18,7 @@ export class Conf {
                     ENV: {type: 'string', enum: ['dev', 'staging', 'prod']},
                     POSTGRES_URL: {type: 'string'},
                     JWT_SECRET: {type: 'string'},
+                    CORS_ALLOW_ORIGIN: {type: 'string'},
                 }
             }
         })
@@ -33,6 +34,7 @@ export class Conf {
             import.meta.env.MODE as Mode,
             env.POSTGRES_URL as string,
             env.JWT_SECRET as string,
+            (env.CORS_ALLOW_ORIGIN as string).split(',').map(o => o.trim()).filter(o => !!o),
             logger,
         )
         if (conf.env === 'prod' && conf.mode !== 'production') throw `prod env is not in production mode!`
@@ -41,7 +43,7 @@ export class Conf {
     }
 
     static test(): Conf {
-        return new Conf(3000, 'dev', 'development', 'db', 'jwt', {})
+        return new Conf(3000, 'dev', 'development', 'db', 'jwt', [], {})
     }
 
     constructor(public readonly port: number,
@@ -49,6 +51,7 @@ export class Conf {
                 public readonly mode: Mode,
                 public readonly databaseUrl: string,
                 public readonly jwtSecret: string,
+                public readonly corsAllowOrigin: string[],
                 public readonly logger: FastifyLoggerOptions) {
     }
 }

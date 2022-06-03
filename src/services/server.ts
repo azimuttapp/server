@@ -2,6 +2,7 @@ import {FastifyInstance} from "fastify/types/instance";
 import {fastify as Fastify, FastifyReply, FastifyRequest} from "fastify";
 import postgres from "@fastify/postgres";
 import jwt from "@fastify/jwt";
+import cors from "@fastify/cors";
 import {Conf} from "@/conf";
 import {RouteGenericInterface, RouteShorthandOptions} from "fastify/types/route";
 import {
@@ -20,6 +21,7 @@ export class Server {
         })
         fastify.register(postgres, {connectionString: conf.databaseUrl})
         fastify.register(jwt, {secret: conf.jwtSecret})
+        fastify.register(cors, {origin: conf.corsAllowOrigin})
         return new Server(fastify)
     }
 
@@ -58,6 +60,14 @@ export class Server {
         return this.authed('PUT', path, opts, handler)
     }
 
+    authedDelete<Route extends RouteGenericInterface>(
+        path: string,
+        opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
+        handler: (req: AuthedRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
+    ): Server {
+        return this.authed('DELETE', path, opts, handler)
+    }
+
     private route<Route extends RouteGenericInterface>(
         method: HTTPMethods,
         path: string,
@@ -85,8 +95,26 @@ export class Server {
     }
 }
 
-class Response<Payload> {
+export class Response<Payload> {
     constructor(private readonly reply: FastifyReply) {
+    }
+
+    maybe(payload: Promise<Payload | undefined>, message: string): Promise<void> {
+        return payload
+            .then(result => result === undefined ? this.notFound(message) : this.ok(result))
+            .catch(err => typeof err === 'string' ? this.badRequest(err) : Promise.reject(err))
+    }
+
+    some(payload: Promise<Payload>): Promise<void> {
+        return payload
+            .then(result => this.ok(result))
+            .catch(err => typeof err === 'string' ? this.badRequest(err) : Promise.reject(err))
+    }
+
+    empty(payload: Promise<Payload>): Promise<void> {
+        return payload
+            .then(_ => this.noContent())
+            .catch(err => typeof err === 'string' ? this.badRequest(err) : Promise.reject(err))
     }
 
     ok(payload: Payload): void {

@@ -1,5 +1,5 @@
-export type Uuid = string
-export type Email = string
+import {Email, Uuid} from "@/types/basics";
+
 export type UserId = Uuid
 export type User = {
     id: UserId
@@ -15,8 +15,3 @@ export type User = {
     twitter: string | null
 }
 export type UserBody = Omit<User, 'id' | 'email'>
-export type Error = {
-    statusCode: number
-    error: string
-    message: string
-}
