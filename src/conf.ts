@@ -34,7 +34,7 @@ export class Conf {
             import.meta.env.MODE as Mode,
             env.POSTGRES_URL as string,
             env.JWT_SECRET as string,
-            (env.CORS_ALLOW_ORIGIN as string).split(',').map(o => o.trim()).filter(o => !!o),
+            ((env.CORS_ALLOW_ORIGIN as string) || '').split(',').map(o => o.trim()).filter(o => !!o),
             logger,
         )
         if (conf.env === 'prod' && conf.mode !== 'production') throw `prod env is not in production mode!`
