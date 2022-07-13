@@ -1,5 +1,7 @@
+import {ColumnName, ColumnType, RelationName, SchemaName, TableName} from "@/types/project";
+
 export interface SchemaExtractor {
-    getSchema(): Promise<DatabaseSchema>
+    getSchema(schema: SchemaName | undefined): Promise<DatabaseSchema>
 }
 
 export interface DatabaseSchema {
@@ -63,9 +65,3 @@ export interface ColumnRef {
     column: ColumnName
 }
 
-export type TableId = string
-export type SchemaName = string
-export type TableName = string
-export type ColumnName = string
-export type ColumnType = string
-export type RelationName = string

@@ -4,7 +4,7 @@ import {Database} from "@/services/database";
 import {Server} from "@/services/server";
 import {User, UserBody, UserId} from "@/types/user";
 import {DatabaseUrl, Email} from "@/types/basics";
-import {Project, ProjectId, ProjectInfo, ProjectWithInfoPost} from "@/types/project";
+import {Project, ProjectId, ProjectInfo, ProjectWithInfoPost, SchemaName} from "@/types/project";
 import {getSchemaExtractor} from "@/services/schema/factory";
 import {DatabaseSchema} from "@/services/schema/extractor";
 
@@ -51,9 +51,9 @@ export const buildApp = (server: Server, db: Database, conf: Conf): Server => {
     }, (req, res) => res.empty(db.updateProjectOwners(req.params.id, req.body, req.user)))
 
     // database
-    server.get<{ Querystring: { url: DatabaseUrl }, Reply: DatabaseSchema }>('/database/schema', {
-        schema: {querystring: {url: s.databaseUrl}, response: {200: s.databaseSchema, 404: s.error}}
-    }, (req, res) => res.some(getSchemaExtractor(req.query.url).then(e => e.getSchema())))
+    server.get<{ Querystring: { url: DatabaseUrl, schema: SchemaName | undefined }, Reply: DatabaseSchema }>('/database/schema', {
+        schema: {querystring: {url: s.databaseUrl, schema: s.optional(s.schemaName)}, response: {200: s.databaseSchema, 404: s.error}}
+    }, (req, res) => res.some(getSchemaExtractor(req.query.url).then(e => e.getSchema(req.query.schema))))
 
     return server
 }

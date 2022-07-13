@@ -1,7 +1,8 @@
-import {DatabaseSchema, SchemaExtractor, TableId} from "@/services/schema/extractor";
+import {DatabaseSchema, SchemaExtractor} from "@/services/schema/extractor";
 import {DatabaseUrl} from "@/types/basics";
 import {Client, ClientConfig} from "pg";
 import {groupBy} from "@/utils/array";
+import {SchemaName, TableId} from "@/types/project";
 
 // https://www.postgresql.org/docs/current/information-schema.html
 // https://www.postgresql.org/docs/current/catalogs.html
@@ -13,12 +14,12 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
     constructor(private readonly client: Client) {
     }
 
-    getSchema(): Promise<DatabaseSchema> {
+    getSchema(schema: SchemaName | undefined): Promise<DatabaseSchema> {
         return this.connect(async client => {
-            const columns = await getColumns(client).then(cols => groupBy(cols, toTableId))
-            const primaryKeys = await getPrimaryKeys(client).then(cols => groupBy(cols, toTableId))
-            const uniques = await getUniques(client).then(cols => groupBy(cols, toTableId))
-            const relations = await getRelations(client)
+            const columns = await getColumns(client, schema).then(cols => groupBy(cols, toTableId))
+            const primaryKeys = await getPrimaryKeys(client, schema).then(cols => groupBy(cols, toTableId))
+            const uniques = await getUniques(client, schema).then(cols => groupBy(cols, toTableId))
+            const relations = await getRelations(client, schema)
             return {
                 tables: Object.entries(columns).map(([tableId, columns]) => {
                     const tablePrimaryKey = primaryKeys[tableId] || []
@@ -97,7 +98,7 @@ interface RawColumn {
     character_maximum_length: number | null
 }
 
-async function getColumns(client: Client): Promise<RawColumn[]> {
+async function getColumns(client: Client, schema: SchemaName | undefined): Promise<RawColumn[]> {
     // https://www.postgresql.org/docs/current/infoschema-tables.html: contains all tables and views defined in the current database
     // https://www.postgresql.org/docs/current/infoschema-columns.html: contains information about all table columns (or view columns) in the database
     return await client.query<RawColumn>(
@@ -115,7 +116,7 @@ async function getColumns(client: Client): Promise<RawColumn[]> {
                             ON t.table_catalog = c.table_catalog AND t.table_schema = c.table_schema AND
                                t.table_name = c.table_name
          WHERE t.TABLE_TYPE IN ('BASE TABLE', 'VIEW')
-           AND t.table_schema NOT IN ('information_schema', 'pg_catalog')`
+           AND t.table_schema ${schema ? `IN ('${schema}')` : `NOT IN ('information_schema', 'pg_catalog')`}`
     ).then(res => res.rows)
 }
 
@@ -126,7 +127,7 @@ interface RawPrimaryKey {
     column_name: string
 }
 
-async function getPrimaryKeys(client: Client): Promise<RawPrimaryKey[]> {
+async function getPrimaryKeys(client: Client, schema: SchemaName | undefined): Promise<RawPrimaryKey[]> {
     // https://www.postgresql.org/docs/current/infoschema-table-constraints.html: contains all constraints belonging to tables that has some privilege other than SELECT on
     // https://www.postgresql.org/docs/current/infoschema-constraint-column-usage.html: identifies all columns that are used by some constraint. For primary key constraint, this view identifies the constrained columns
     return await client.query<RawPrimaryKey>(
@@ -135,7 +136,7 @@ async function getPrimaryKeys(client: Client): Promise<RawPrimaryKey[]> {
                   JOIN information_schema.constraint_column_usage AS ccu
                        ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
          WHERE tc.constraint_type = 'PRIMARY KEY'
-           AND tc.table_schema NOT IN ('information_schema', 'pg_catalog')`
+           AND tc.table_schema ${schema ? `IN ('${schema}')` : `NOT IN ('information_schema', 'pg_catalog')`}`
     ).then(res => res.rows)
 }
 
@@ -146,7 +147,7 @@ interface RawUnique {
     column_name: string
 }
 
-async function getUniques(client: Client): Promise<RawUnique[]> {
+async function getUniques(client: Client, schema: SchemaName | undefined): Promise<RawUnique[]> {
     // https://www.postgresql.org/docs/current/infoschema-table-constraints.html: contains all constraints belonging to tables that has some privilege other than SELECT on
     // https://www.postgresql.org/docs/current/infoschema-constraint-column-usage.html: identifies all columns that are used by some constraint. For primary key constraint, this view identifies the constrained columns
     return await client.query<RawUnique>(
@@ -155,7 +156,7 @@ async function getUniques(client: Client): Promise<RawUnique[]> {
                   JOIN information_schema.constraint_column_usage AS ccu
                        ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
          WHERE tc.constraint_type = 'UNIQUE'
-           AND tc.table_schema NOT IN ('information_schema', 'pg_catalog')`
+           AND tc.table_schema ${schema ? `IN ('${schema}')` : `NOT IN ('information_schema', 'pg_catalog')`}`
     ).then(res => res.rows)
 }
 
@@ -169,7 +170,7 @@ interface RawRelation {
     foreign_column_name: string
 }
 
-async function getRelations(client: Client): Promise<RawRelation[]> {
+async function getRelations(client: Client, schema: SchemaName | undefined): Promise<RawRelation[]> {
     // https://www.postgresql.org/docs/current/infoschema-table-constraints.html: contains all constraints belonging to tables that has some privilege other than SELECT on
     // https://www.postgresql.org/docs/current/infoschema-key-column-usage.html: identifies all columns that are restricted by unique, primary key, or foreign key constraint. Check constraints are not included
     // https://www.postgresql.org/docs/current/infoschema-constraint-column-usage.html: identifies all columns that are used by some constraint
@@ -191,6 +192,7 @@ async function getRelations(client: Client): Promise<RawRelation[]> {
                        ON tc.constraint_name = kcu.constraint_name AND tc.table_schema = kcu.table_schema
                   JOIN information_schema.constraint_column_usage AS ccu
                        ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
-         WHERE tc.constraint_type = 'FOREIGN KEY'`
+         WHERE tc.constraint_type = 'FOREIGN KEY'
+           AND tc.table_schema ${schema ? `IN ('${schema}')` : `NOT IN ('information_schema', 'pg_catalog')`}`
     ).then(res => res.rows)
 }
