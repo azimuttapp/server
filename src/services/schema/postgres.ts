@@ -19,23 +19,25 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
             const columns = await getColumns(client, schema).then(cols => groupBy(cols, toTableId))
             const primaryKeys = await getPrimaryKeys(client, schema).then(cols => groupBy(cols, toTableId))
             const uniques = await getUniques(client, schema).then(cols => groupBy(cols, toTableId))
+            const comments = await getComments(client, schema).then(cols => groupBy(cols, toTableId))
             const relations = await getRelations(client, schema)
             return {
                 tables: Object.entries(columns).map(([tableId, columns]) => {
                     const tablePrimaryKey = primaryKeys[tableId] || []
                     const tableUniques = groupBy(uniques[tableId] || [], u => u.constraint_name)
+                    const tableComments = comments[tableId] || []
                     return {
                         schema: columns[0].table_schema,
                         table: columns[0].table_name,
                         view: columns[0].table_type === 'VIEW',
                         columns: columns
                             .sort((a, b) => a.ordinal_position - b.ordinal_position)
-                            .map(c => ({
-                                name: c.column_name,
-                                type: c.data_type + (c.character_maximum_length ? `(${c.character_maximum_length})` : ''),
-                                nullable: c.is_nullable === 'YES',
-                                default: c.column_default,
-                                comment: null
+                            .map(col => ({
+                                name: col.column_name,
+                                type: col.data_type + (col.character_maximum_length ? `(${col.character_maximum_length})` : ''),
+                                nullable: col.is_nullable === 'YES',
+                                default: col.column_default,
+                                comment: tableComments.find(c => c.column_name === col.column_name)?.description || null
                             })),
                         primaryKey: tablePrimaryKey.length > 0 ? {
                             name: tablePrimaryKey[0].constraint_name,
@@ -48,7 +50,7 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
                         })),
                         indexes: [],
                         checks: [],
-                        comment: null
+                        comment: tableComments.find(c => c.column_name === null)?.description || null
                     }
                 }),
                 relations: relations.map(r => ({
@@ -157,6 +159,29 @@ async function getUniques(client: Client, schema: SchemaName | undefined): Promi
                        ON ccu.constraint_name = tc.constraint_name AND ccu.table_schema = tc.table_schema
          WHERE tc.constraint_type = 'UNIQUE'
            AND tc.table_schema ${schema ? `IN ('${schema}')` : `NOT IN ('information_schema', 'pg_catalog')`}`
+    ).then(res => res.rows)
+}
+
+interface RawComment {
+    table_schema: string
+    table_name: string
+    column_name: string | null
+    description: string
+}
+
+async function getComments(client: Client, schema: SchemaName | undefined): Promise<RawComment[]> {
+    // https://www.postgresql.org/docs/current/catalog-pg-description.html: stores optional descriptions (comments) for each database object.
+    // https://www.postgresql.org/docs/current/catalog-pg-class.html: catalogs tables and most everything else that has columns or is otherwise similar to a table. This includes indexes (but see also pg_index), sequences (but see also pg_sequence), views, materialized views, composite types, and TOAST tables; see relkind.
+    // https://www.postgresql.org/docs/current/catalog-pg-namespace.html: stores namespaces. A namespace is the structure underlying SQL schemas: each namespace can have a separate collection of relations, types, etc. without name conflicts.
+    // https://www.postgresql.org/docs/current/catalog-pg-attribute.html: stores information about table columns. There will be exactly one row for every column in every table in the database.
+    return await client.query<RawComment>(
+        `SELECT n.nspname AS table_schema, c.relname AS table_name, a.attname AS column_name, d.description
+         FROM pg_description d
+                  JOIN pg_class c ON c.oid = d.objoid
+                  JOIN pg_namespace n ON n.oid = c.relnamespace
+                  LEFT OUTER JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = d.objsubid
+         WHERE c.relkind IN ('r', 'v', 'm')
+           AND n.nspname ${schema ? `IN ('${schema}')` : `NOT IN ('information_schema', 'pg_catalog')`}`
     ).then(res => res.rows)
 }
 

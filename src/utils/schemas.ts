@@ -56,6 +56,7 @@ export const tableName = {type: 'string'}
 export const columnName = {type: 'string'}
 export const columnType = {type: 'string'}
 export const relationName = {type: 'string'}
+export const comment = {type: 'string'}
 export const columnRef: ObjectSchema = {
     type: 'object',
     properties: {
@@ -81,6 +82,7 @@ export const column: ObjectSchema = {
         type: columnType,
         nullable: {type: 'boolean'},
         default: {type: ['string', 'null']},
+        comment: nullable(comment),
     },
     additionalProperties: false
 }
@@ -130,6 +132,7 @@ export const table: ObjectSchema = {
         uniques: array(unique),
         indexes: array(index),
         checks: array(check),
+        comment: nullable(comment),
     },
     additionalProperties: false
 }
