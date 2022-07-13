@@ -16,6 +16,7 @@ export interface Table {
     uniques: Unique[]
     indexes: Index[]
     checks: Check[]
+    comment: string | null
 }
 
 export interface PrimaryKey {
@@ -46,6 +47,7 @@ export interface Column {
     type: ColumnType
     nullable: boolean
     default: string | null
+    comment: string | null
 }
 
 
@@ -61,6 +63,7 @@ export interface ColumnRef {
     column: ColumnName
 }
 
+export type TableId = string
 export type SchemaName = string
 export type TableName = string
 export type ColumnName = string
