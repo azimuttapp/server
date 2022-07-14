@@ -1,7 +1,7 @@
 import {DatabaseSchema, SchemaExtractor} from "@/services/schema/extractor";
 import {DatabaseUrl} from "@/types/basics";
 import {Client, ClientConfig} from "pg";
-import {groupBy} from "@/utils/array";
+import {groupBy, zip} from "@/utils/array";
 import {SchemaName, TableId} from "@/types/project";
 
 export class PostgresSchemaExtractor implements SchemaExtractor {
@@ -59,26 +59,19 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
                         checks: tableConstraints.filter(c => c.constraint_type === 'c').map(c => ({
                             name: c.constraint_name,
                             columns: c.columns.map(getColumnName(tableId)),
-                            predicate: c.definition
+                            predicate: c.definition.replace(/^CHECK/, '').trim()
                         })),
                         comment: tableComments.find(c => c.column_name === null)?.description || null
                     }
                 }),
                 relations: relations.map(r => ({
                     name: r.constraint_name,
-                    src: {
-                        schema: r.table_schema,
-                        table: r.table_name,
-                        columns: r.columns.map(getColumnName(toTableId(r)))
-                    },
-                    ref: {
-                        schema: r.target_schema,
-                        table: r.target_table,
-                        columns: r.target_columns.map(getColumnName(toTableId({
-                            table_schema: r.target_schema,
-                            table_name: r.target_table
-                        })))
-                    },
+                    src: {schema: r.table_schema, table: r.table_name},
+                    ref: {schema: r.target_schema, table: r.target_table},
+                    columns: zip(r.columns.map(getColumnName(toTableId(r))), r.target_columns.map(getColumnName(toTableId({
+                        table_schema: r.target_schema,
+                        table_name: r.target_table
+                    })))).map(([src, ref]) => ({src, ref}))
                 }))
             }
         })
@@ -92,7 +85,6 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
         })
     }
 }
-
 
 export function parseUrl(url: DatabaseUrl): Promise<ClientConfig> {
     const regex = new RegExp('postgres:\/\/([^:]+):(.+)@([^:]+)(?::(\\d+))?\/([^/]+)')

@@ -57,12 +57,19 @@ export const columnName = {type: 'string'}
 export const columnType = {type: 'string'}
 export const relationName = {type: 'string'}
 export const comment = {type: 'string'}
-export const columnRef: ObjectSchema = {
+export const tableRef: ObjectSchema = {
     type: 'object',
     properties: {
         schema: schemaName,
         table: tableName,
-        columns: array(columnName),
+    },
+    additionalProperties: false
+}
+export const columnLink: ObjectSchema = {
+    type: 'object',
+    properties: {
+        src: columnName,
+        ref: columnName,
     },
     additionalProperties: false
 }
@@ -70,8 +77,9 @@ export const relation: ObjectSchema = {
     type: 'object',
     properties: {
         name: relationName,
-        src: columnRef,
-        ref: columnRef,
+        src: tableRef,
+        ref: tableRef,
+        columns: array(columnLink),
     },
     additionalProperties: false
 }

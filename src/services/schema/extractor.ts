@@ -55,13 +55,17 @@ export interface Column {
 
 export interface Relation {
     name: RelationName
-    src: ColumnRef
-    ref: ColumnRef
+    src: TableRef
+    ref: TableRef
+    columns: ColumnLink[]
 }
 
-export interface ColumnRef {
+export interface TableRef {
     schema: SchemaName
     table: TableName
-    columns: ColumnName[]
 }
 
+export interface ColumnLink {
+    src: ColumnName
+    ref: ColumnName
+}
