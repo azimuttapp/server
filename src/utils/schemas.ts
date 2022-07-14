@@ -62,7 +62,7 @@ export const columnRef: ObjectSchema = {
     properties: {
         schema: schemaName,
         table: tableName,
-        column: columnName,
+        columns: array(columnName),
     },
     additionalProperties: false
 }

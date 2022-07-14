@@ -62,6 +62,6 @@ export interface Relation {
 export interface ColumnRef {
     schema: SchemaName
     table: TableName
-    column: ColumnName
+    columns: ColumnName[]
 }
 
