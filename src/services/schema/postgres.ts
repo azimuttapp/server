@@ -40,7 +40,7 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
                                 type: col.column_type,
                                 nullable: col.column_nullable,
                                 default: col.column_default,
-                                comment: tableComments.find(c => c.column_name === col.column_name)?.description || null
+                                comment: tableComments.find(c => c.column_name === col.column_name)?.comment || null
                             })),
                         primaryKey: tableConstraints.filter(c => c.constraint_type === 'p').map(c => ({
                             name: c.constraint_name,
@@ -61,7 +61,7 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
                             columns: c.columns.map(getColumnName(tableId)),
                             predicate: c.definition.replace(/^CHECK/, '').trim()
                         })),
-                        comment: tableComments.find(c => c.column_name === null)?.description || null
+                        comment: tableComments.find(c => c.column_name === null)?.comment || null
                     }
                 }),
                 relations: relations.map(r => ({
@@ -119,18 +119,18 @@ async function getColumns(client: Client, schema: SchemaName | undefined): Promi
     // https://www.postgresql.org/docs/current/catalog-pg-namespace.html: stores namespaces. A namespace is the structure underlying SQL schemas: each namespace can have a separate collection of relations, types, etc. without name conflicts.
     // https://www.postgresql.org/docs/current/catalog-pg-attrdef.html: stores column default values.
     return await client.query<RawColumn>(
-        `SELECT n.nspname                            as table_schema,
-                c.relname                            as table_name,
-                c.relkind                            as table_kind,
-                a.attname                            as column_name,
-                format_type(a.atttypid, a.atttypmod) as column_type,
-                a.attnum                             as column_index,
-                pg_get_expr(d.adbin, d.adrelid)      as column_default,
-                NOT a.attnotnull                     as column_nullable
+        `SELECT n.nspname                            AS table_schema
+              , c.relname                            AS table_name
+              , c.relkind                            AS table_kind
+              , a.attname                            AS column_name
+              , format_type(a.atttypid, a.atttypmod) AS column_type
+              , a.attnum                             AS column_index
+              , pg_get_expr(d.adbin, d.adrelid)      AS column_default
+              , NOT a.attnotnull                     AS column_nullable
          FROM pg_attribute a
-                  JOIN pg_class c on c.oid = a.attrelid
+                  JOIN pg_class c ON c.oid = a.attrelid
                   JOIN pg_namespace n ON n.oid = c.relnamespace
-                  LEFT OUTER JOIN pg_attrdef d on d.adrelid = c.oid AND d.adnum = a.attnum
+                  LEFT OUTER JOIN pg_attrdef d ON d.adrelid = c.oid AND d.adnum = a.attnum
          WHERE c.relkind IN ('r', 'v', 'm')
            AND a.attnum > 0
            AND ${filterSchema('n.nspname', schema)}`
@@ -151,14 +151,14 @@ async function getConstraints(client: Client, schema: SchemaName | undefined): P
     // https://www.postgresql.org/docs/current/catalog-pg-class.html: catalogs tables and most everything else that has columns or is otherwise similar to a table. This includes indexes (but see also pg_index), sequences (but see also pg_sequence), views, materialized views, composite types, and TOAST tables; see relkind.
     // https://www.postgresql.org/docs/current/catalog-pg-namespace.html: stores namespaces. A namespace is the structure underlying SQL schemas: each namespace can have a separate collection of relations, types, etc. without name conflicts.
     return await client.query<RawConstraint>(
-        `SELECT cn.contype                         as constraint_type
-              , cn.conname                         as constraint_name
-              , n.nspname                          as table_schema
-              , c.relname                          as table_name
-              , cn.conkey                          as columns
-              , pg_get_constraintdef(cn.oid, true) as definition
+        `SELECT cn.contype                         AS constraint_type
+              , cn.conname                         AS constraint_name
+              , n.nspname                          AS table_schema
+              , c.relname                          AS table_name
+              , cn.conkey                          AS columns
+              , pg_get_constraintdef(cn.oid, true) AS definition
          FROM pg_constraint cn
-                  JOIN pg_class c on c.oid = cn.conrelid
+                  JOIN pg_class c ON c.oid = cn.conrelid
                   JOIN pg_namespace n ON n.oid = c.relnamespace
          WHERE cn.contype IN ('p', 'c')
            AND ${filterSchema('n.nspname', schema)};`
@@ -179,17 +179,17 @@ async function getIndexes(client: Client, schema: SchemaName | undefined): Promi
     // https://www.postgresql.org/docs/current/catalog-pg-class.html: catalogs tables and most everything else that has columns or is otherwise similar to a table. This includes indexes (but see also pg_index), sequences (but see also pg_sequence), views, materialized views, composite types, and TOAST tables; see relkind.
     // https://www.postgresql.org/docs/current/catalog-pg-namespace.html: stores namespaces. A namespace is the structure underlying SQL schemas: each namespace can have a separate collection of relations, types, etc. without name conflicts.
     return await client.query<RawIndex>(
-        `SELECT ic.relname                             as index_name
-              , tn.nspname                             as table_schema
-              , tc.relname                             as table_name
-              , i.indkey                               as columns
-              , pg_get_indexdef(i.indexrelid, 0, true) as definition
-              , i.indisunique                          as is_unique
+        `SELECT ic.relname                             AS index_name
+              , tn.nspname                             AS table_schema
+              , tc.relname                             AS table_name
+              , i.indkey                               AS columns
+              , pg_get_indexdef(i.indexrelid, 0, true) AS definition
+              , i.indisunique                          AS is_unique
          FROM pg_index i
-                  JOIN pg_class ic on ic.oid = i.indexrelid
-                  JOIN pg_class tc on tc.oid = i.indrelid
+                  JOIN pg_class ic ON ic.oid = i.indexrelid
+                  JOIN pg_class tc ON tc.oid = i.indrelid
                   JOIN pg_namespace tn ON tn.oid = tc.relnamespace
-         WHERE indisprimary = false
+         WHERE i.indisprimary = false
            AND ${filterSchema('tn.nspname', schema)};`
     ).then(res => res.rows.map(r => ({
         ...r,
@@ -202,7 +202,7 @@ interface RawComment {
     table_schema: string
     table_name: string
     column_name: string | null
-    description: string
+    comment: string
 }
 
 async function getComments(client: Client, schema: SchemaName | undefined): Promise<RawComment[]> {
@@ -211,7 +211,10 @@ async function getComments(client: Client, schema: SchemaName | undefined): Prom
     // https://www.postgresql.org/docs/current/catalog-pg-namespace.html: stores namespaces. A namespace is the structure underlying SQL schemas: each namespace can have a separate collection of relations, types, etc. without name conflicts.
     // https://www.postgresql.org/docs/current/catalog-pg-attribute.html: stores information about table columns. There will be exactly one row for every column in every table in the database.
     return await client.query<RawComment>(
-        `SELECT n.nspname AS table_schema, c.relname AS table_name, a.attname AS column_name, d.description
+        `SELECT n.nspname     AS table_schema
+              , c.relname     AS table_name
+              , a.attname     AS column_name
+              , d.description AS comment
          FROM pg_description d
                   JOIN pg_class c ON c.oid = d.objoid
                   JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -236,18 +239,18 @@ async function getRelations(client: Client, schema: SchemaName | undefined): Pro
     // https://www.postgresql.org/docs/current/catalog-pg-class.html: catalogs tables and most everything else that has columns or is otherwise similar to a table. This includes indexes (but see also pg_index), sequences (but see also pg_sequence), views, materialized views, composite types, and TOAST tables; see relkind.
     // https://www.postgresql.org/docs/current/catalog-pg-namespace.html: stores namespaces. A namespace is the structure underlying SQL schemas: each namespace can have a separate collection of relations, types, etc. without name conflicts.
     return await client.query<RawRelation>(
-        `SELECT cn.conname as constraint_name
-              , n.nspname  as table_schema
-              , c.relname  as table_name
-              , cn.conkey  as columns
-              , tn.nspname as target_schema
-              , tc.relname as target_table
-              , cn.confkey as target_columns
+        `SELECT cn.conname AS constraint_name
+              , n.nspname  AS table_schema
+              , c.relname  AS table_name
+              , cn.conkey  AS columns
+              , tn.nspname AS target_schema
+              , tc.relname AS target_table
+              , cn.confkey AS target_columns
          FROM pg_constraint cn
-                  JOIN pg_class c on c.oid = cn.conrelid
+                  JOIN pg_class c ON c.oid = cn.conrelid
                   JOIN pg_namespace n ON n.oid = c.relnamespace
-                  JOIN pg_class tc on tc.oid = cn.confrelid
-                  JOIN pg_namespace tn on tn.oid = tc.relnamespace
+                  JOIN pg_class tc ON tc.oid = cn.confrelid
+                  JOIN pg_namespace tn ON tn.oid = tc.relnamespace
          WHERE cn.contype IN ('f')
            AND ${filterSchema('n.nspname', schema)};`
     ).then(res => res.rows)

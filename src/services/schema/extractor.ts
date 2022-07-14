@@ -52,7 +52,6 @@ export interface Column {
     comment: string | null
 }
 
-
 export interface Relation {
     name: RelationName
     src: TableRef
