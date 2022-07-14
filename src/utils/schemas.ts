@@ -51,7 +51,7 @@ export const projectWithInfo: ObjectSchema = extend(projectInfo, {
 export const projectWithInfoPost = omit(projectWithInfo, ['createdAt', 'updatedAt'])
 
 // database schema
-export const schemaName = {type: 'string', pattern: '[^ ]+'}
+export const schemaName = {type: 'string', pattern: '^[^ ]+$'}
 export const tableName = {type: 'string'}
 export const columnName = {type: 'string'}
 export const columnType = {type: 'string'}
@@ -162,6 +162,10 @@ export const error = {
         message: {type: 'string'}
     },
     required: ['statusCode', 'error', 'message'],
+}
+
+export function object(properties: { [key: string]: any }, required: string[] = []) {
+    return {type: 'object', properties, required, additionalProperties: false}
 }
 
 export function array(type: any) {
