@@ -21,11 +21,13 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
             }), {})
             const getColumnName = (tableId: string) => (columnIndex: number): string => columnsByIndex[tableId]?.[columnIndex]?.column_name || 'unknown'
             const constraints = await getConstraints(client, schema).then(cols => groupBy(cols, toTableId))
+            const indexes = await getIndexes(client, schema).then(cols => groupBy(cols, toTableId))
             const comments = await getComments(client, schema).then(cols => groupBy(cols, toTableId))
             const relations = await getRelations(client, schema)
             return {
                 tables: Object.entries(columns).map(([tableId, columns]) => {
                     const tableConstraints = constraints[tableId] || []
+                    const tableIndexes = indexes[tableId] || []
                     const tableComments = comments[tableId] || []
                     return {
                         schema: columns[0].table_schema,
@@ -44,12 +46,16 @@ export class PostgresSchemaExtractor implements SchemaExtractor {
                             name: c.constraint_name,
                             columns: c.columns.map(getColumnName(tableId))
                         }))[0] || null,
-                        uniques: tableConstraints.filter(c => c.constraint_type === 'u').map(c => ({
-                            name: c.constraint_name,
-                            columns: c.columns.map(getColumnName(tableId)),
-                            definition: c.definition
+                        uniques: tableIndexes.filter(i => i.is_unique).map(i => ({
+                            name: i.index_name,
+                            columns: i.columns.map(getColumnName(tableId)),
+                            definition: i.definition
                         })),
-                        indexes: [],
+                        indexes: tableIndexes.filter(i => !i.is_unique).map(i => ({
+                            name: i.index_name,
+                            columns: i.columns.map(getColumnName(tableId)),
+                            definition: i.definition
+                        })),
                         checks: tableConstraints.filter(c => c.constraint_type === 'c').map(c => ({
                             name: c.constraint_name,
                             columns: c.columns.map(getColumnName(tableId)),
@@ -140,7 +146,7 @@ async function getColumns(client: Client, schema: SchemaName | undefined): Promi
 }
 
 interface RawConstraint {
-    constraint_type: 'p' | 'u' | 'c' // p: primary key, u: unique, c: check
+    constraint_type: 'p' | 'c' // p: primary key, c: check
     constraint_name: string
     table_schema: string
     table_name: string
@@ -162,9 +168,42 @@ async function getConstraints(client: Client, schema: SchemaName | undefined): P
          FROM pg_constraint cn
                   JOIN pg_class c on c.oid = cn.conrelid
                   JOIN pg_namespace n ON n.oid = c.relnamespace
-         WHERE cn.contype IN ('p', 'u', 'c')
+         WHERE cn.contype IN ('p', 'c')
            AND ${filterSchema('n.nspname', schema)};`
     ).then(res => res.rows)
+}
+
+interface RawIndex {
+    index_name: string
+    table_schema: string
+    table_name: string
+    columns: number[]
+    definition: string
+    is_unique: boolean
+}
+
+async function getIndexes(client: Client, schema: SchemaName | undefined): Promise<RawIndex[]> {
+    // https://www.postgresql.org/docs/current/catalog-pg-index.html: contains part of the information about indexes. The rest is mostly in pg_class.
+    // https://www.postgresql.org/docs/current/catalog-pg-class.html: catalogs tables and most everything else that has columns or is otherwise similar to a table. This includes indexes (but see also pg_index), sequences (but see also pg_sequence), views, materialized views, composite types, and TOAST tables; see relkind.
+    // https://www.postgresql.org/docs/current/catalog-pg-namespace.html: stores namespaces. A namespace is the structure underlying SQL schemas: each namespace can have a separate collection of relations, types, etc. without name conflicts.
+    return await client.query<RawIndex>(
+        `SELECT ic.relname                             as index_name
+              , tn.nspname                             as table_schema
+              , tc.relname                             as table_name
+              , i.indkey                               as columns
+              , pg_get_indexdef(i.indexrelid, 0, true) as definition
+              , i.indisunique                          as is_unique
+         FROM pg_index i
+                  JOIN pg_class ic on ic.oid = i.indexrelid
+                  JOIN pg_class tc on tc.oid = i.indrelid
+                  JOIN pg_namespace tn ON tn.oid = tc.relnamespace
+         WHERE indisprimary = false
+           AND ${filterSchema('tn.nspname', schema)};`
+    ).then(res => res.rows.map(r => ({
+        ...r,
+        columns: (r.columns as any as string).split(' ').map(c => parseInt(c, 10)).filter(i => i !== 0),
+        definition: r.definition.indexOf('USING') > 0 ? r.definition.split('USING')[1].trim() : r.definition
+    })))
 }
 
 interface RawComment {
