@@ -35,6 +35,13 @@ export class Server {
     ): Server {
         return this.route('GET', path, opts, handler)
     }
+    post<Route extends RouteGenericInterface>(
+        path: string,
+        opts: RouteShorthandOptions<RawServerDefault, RawRequestDefaultExpression, RawReplyDefaultExpression, Route>,
+        handler: (req: FastifyRequest<Route>, res: Response<Route['Reply']>) => void | Promise<void>
+    ): Server {
+        return this.route('POST', path, opts, handler)
+    }
 
     authedGet<Route extends RouteGenericInterface>(
         path: string,

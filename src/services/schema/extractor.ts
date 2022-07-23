@@ -1,7 +1,13 @@
 import {ColumnName, ColumnType, RelationName, SchemaName, TableName} from "@/types/project";
+import {DatabaseUrl} from "@/types/basics";
 
 export interface SchemaExtractor {
     getSchema(schema: SchemaName | undefined): Promise<DatabaseSchema>
+}
+
+export interface DatabaseParams {
+    url: DatabaseUrl
+    schema: SchemaName | undefined
 }
 
 export interface DatabaseSchema {
@@ -18,6 +24,14 @@ export interface Table {
     uniques: Unique[]
     indexes: Index[]
     checks: Check[]
+    comment: string | null
+}
+
+export interface Column {
+    name: ColumnName
+    type: ColumnType
+    nullable: boolean
+    default: string | null
     comment: string | null
 }
 
@@ -42,14 +56,6 @@ export interface Check {
     name: string
     columns: ColumnName[]
     predicate: string | null
-}
-
-export interface Column {
-    name: ColumnName
-    type: ColumnType
-    nullable: boolean
-    default: string | null
-    comment: string | null
 }
 
 export interface Relation {

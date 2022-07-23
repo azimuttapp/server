@@ -2,7 +2,6 @@ export const empty = {type: 'null'}
 export const uuid = {type: 'string', format: 'uuid'}
 export const email = {type: 'string', format: 'email'}
 export const timestamp = {type: 'number'}
-export const databaseUrl = {type: 'string'}
 
 export const userId = {type: 'string', format: 'uuid'}
 export const user: ObjectSchema = {
@@ -51,7 +50,9 @@ export const projectWithInfo: ObjectSchema = extend(projectInfo, {
 export const projectWithInfoPost = omit(projectWithInfo, ['createdAt', 'updatedAt'])
 
 // database schema
+export const databaseUrl = {type: 'string'}
 export const schemaName = {type: 'string', pattern: '^[^ ]+$'}
+export const databaseParams = object({url: databaseUrl, schema: schemaName}, ['url'])
 export const tableName = {type: 'string'}
 export const columnName = {type: 'string'}
 export const columnType = {type: 'string'}
